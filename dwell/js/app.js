@@ -1,9 +1,9 @@
 (function () {
   "use strict";
 
-  var cfg = window.DWELL;
-  var root = cfg.url.replace(/\/$/, "");
-  var key = cfg.key;
+  var cfg = window.DWELL || {};
+  var root = String(cfg.url || "").replace(/\/$/, "");
+  var key = cfg.key || "";
   var headers = {
     apikey: key,
     Authorization: "Bearer " + key,
@@ -16,9 +16,12 @@
   var noteEl = document.getElementById("form-note");
   var rowsEl = document.getElementById("rows");
   var emptyEl = document.getElementById("empty");
+  var hintEl = document.getElementById("hint");
   var pulseEl = document.getElementById("pulse");
   var goBtn = form.querySelector("button");
 
+  var CACHE = "dwell.board.v1";
+  var FOCUS = "dwell.focus.v1";
   var focusId = null;
   var lastAct = Date.now();
   var items = [];
@@ -79,6 +82,32 @@
     lastAct = Date.now();
   }
 
+  function saveCache() {
+    try { localStorage.setItem(CACHE, JSON.stringify(items)); } catch (e) {}
+    try {
+      if (focusId) sessionStorage.setItem(FOCUS, focusId);
+      else sessionStorage.removeItem(FOCUS);
+    } catch (e) {}
+  }
+
+  function readCache() {
+    try {
+      var raw = localStorage.getItem(CACHE);
+      var data = raw ? JSON.parse(raw) : [];
+      if (Array.isArray(data) && data.length) items = data;
+    } catch (e) {}
+    try {
+      var f = sessionStorage.getItem(FOCUS);
+      if (f) focusId = f;
+    } catch (e) {}
+  }
+
+  function sortItems() {
+    items.sort(function (a, b) {
+      return (Number(b.dwell_ms) || 0) - (Number(a.dwell_ms) || 0);
+    });
+  }
+
   ["pointerdown", "pointermove", "keydown", "touchstart", "wheel"].forEach(function (ev) {
     document.addEventListener(ev, markActive, { passive: true });
   });
@@ -102,11 +131,16 @@
       pulseEl.textContent = "idle";
       pulseEl.classList.remove("live");
     }
+    if (hintEl) hintEl.hidden = !!focusId;
   }
 
   function render() {
     rowsEl.innerHTML = "";
-    if (!items.length) return;
+    emptyEl.hidden = items.length > 0;
+    if (!items.length) {
+      emptyEl.textContent = "Nothing listed yet. Drop a URL above.";
+      return;
+    }
 
     items.forEach(function (row, i) {
       var li = document.createElement("li");
@@ -158,8 +192,10 @@
       li.addEventListener("click", function () {
         focusId = row.id;
         markActive();
+        saveCache();
         render();
         setPulse();
+        tick();
       });
       li.addEventListener("keydown", function (e) {
         if (e.key === "Enter" || e.key === " ") {
@@ -171,7 +207,25 @@
     });
   }
 
+  function showBoard(data) {
+    items = Array.isArray(data) ? data : [];
+    sortItems();
+    if (focusId && !items.some(function (r) { return r.id === focusId; })) {
+      focusId = null;
+    }
+    saveCache();
+    render();
+    setPulse();
+  }
+
   function load() {
+    if (!root || !key) {
+      if (!items.length) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = "The board is unreachable. You can still try the form above.";
+      }
+      return Promise.resolve();
+    }
     return fetch(
       root + "/rest/v1/dwell_listings?select=id,url,line,dwell_ms&order=dwell_ms.desc",
       { headers: headers }
@@ -181,22 +235,31 @@
         return res.json();
       })
       .then(function (data) {
-        items = Array.isArray(data) ? data : [];
-        emptyEl.hidden = items.length > 0;
-        if (!items.length) {
-          emptyEl.textContent = "Nothing listed yet. Drop a URL above.";
-        }
-        if (focusId && !items.some(function (r) { return r.id === focusId; })) {
-          focusId = null;
-        }
-        render();
+        showBoard(data);
       })
       .catch(function () {
-        items = [];
-        rowsEl.innerHTML = "";
+        if (items.length) {
+          render();
+          return;
+        }
         emptyEl.hidden = false;
         emptyEl.textContent = "The board is unreachable. You can still try the form above.";
       });
+  }
+
+  function applyTick(ms) {
+    var i;
+    var add = Number(ms);
+    if (!(add > 0)) add = 4000;
+    for (i = 0; i < items.length; i++) {
+      if (items[i].id === focusId) {
+        items[i].dwell_ms = (Number(items[i].dwell_ms) || 0) + add;
+        break;
+      }
+    }
+    sortItems();
+    saveCache();
+    render();
   }
 
   function tick() {
@@ -210,6 +273,13 @@
       headers: headers,
       body: JSON.stringify({ p_id: focusId })
     })
+      .then(function (res) {
+        if (!res.ok) throw new Error("tick");
+        return res.json();
+      })
+      .then(function (n) {
+        applyTick(n);
+      })
       .catch(function () {})
       .then(function () {
         ticking = false;
@@ -257,6 +327,14 @@
           if (Array.isArray(pack.body) && pack.body[0] && pack.body[0].id) {
             focusId = pack.body[0].id;
             markActive();
+            if (!items.some(function (r) { return r.id === focusId; })) {
+              items.push(pack.body[0]);
+            }
+            sortItems();
+            saveCache();
+            render();
+            setPulse();
+            tick();
           }
           return load();
         }
@@ -284,6 +362,8 @@
   });
 
   document.addEventListener("visibilitychange", setPulse);
+  readCache();
+  if (items.length) render();
   setInterval(setPulse, 1000);
   setInterval(tick, 4000);
   setInterval(load, 8000);
