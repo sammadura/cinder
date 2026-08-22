@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Cinder</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="row">
+    <div class="brand">CINDER</div>
+    <div id="watch">Watch 1</div>
+    <div id="best">Best 0</div>
+    <button type="button" id="mute" aria-label="Mute">M</button>
+    <button type="button" id="pausebtn" aria-label="Pause">II</button>
+  </div>
+  <div class="bars">
+    <div class="bar"><em>Fire</em><b><i id="fbar"></i></b></div>
+    <div class="bar"><em>You</em><b><i id="pbar"></i></b></div>
+  </div>
+</div>
+<div id="toast" hidden></div>
+<div id="shade" class="on">
+  <div id="card">
+    <h1 id="tit">Cinder</h1>
+    <p id="msg">Hold the fire. Last the night.</p>
+    <button type="button" id="go">Play</button>
+  </div>
+</div>
+<div id="stick" aria-hidden="true"><i id="knob"></i></div>
+<div id="throw" aria-hidden="true"></div>
+<script src="js/draw.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
