@@ -69,6 +69,8 @@ input::placeholder { color: #4a525c; }
 h2 { font-family: var(--serif); font-weight: 400; font-size: 1rem; color: var(--mute); }
 .pulse { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mute); }
 .pulse.live { color: var(--teal); }
+.hint { color: var(--mute); font-size: 0.88rem; margin: 0 0 0.85rem; }
+.hint[hidden] { display: none; }
 .rows { list-style: none; }
 .row {
   display: grid; grid-template-columns: 2.1rem 1fr auto; gap: 0.55rem 0.85rem;
